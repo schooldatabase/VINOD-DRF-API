@@ -1,0 +1,198 @@
+# # # class LikedSongViewSet(viewsets.ModelViewSet):
+# # #     queryset = LikedSong.objects.all()
+# # #     serializer_class = LikedSongSerializer
+    
+# # #     @action(detail=True, methods=['post'], url_path='like', url_name='like_song')
+# # #     def like_song(self, request, pk=None):
+# # #         song = self.get_object()
+# # #         user = request.user  # Assuming you have user authentication
+
+# # #         # Check if the user already liked the song
+# # #         liked_song, created = LikedSong.objects.get_or_create(user=user, song=song)
+
+# # #         if not created:
+# # #             # User already liked the song, so remove the like
+# # #             liked_song.delete()
+# # #             return Response({'message': 'Like removed'}, status=status.HTTP_204_NO_CONTENT)
+# # #         else:
+# # #                 # User liked the song for the first time
+
+# # #             # Create a new LikedSong object
+# # #             new_liked_song = LikedSong(user=user, song=song)
+
+# # #             # You can add any additional fields or custom logic here if needed
+# # #             # For example, you might want to record the date and time when the like was added.
+# # #             new_liked_song.save()
+
+# # #             # You can also return a success message if desired
+# # #             return Response({'message': 'Like added'}, status=status.HTTP_201_CREATED)
+
+
+# class LikedSongViewSet(viewsets.ModelViewSet):
+#     queryset = LikedSong.objects.all()
+#     serializer_class = LikedSongSerializer
+    
+#     def create(self, request, *args, **kwargs):
+#         user = request.user
+#         song_id = request.data.get('song')
+
+#         try:
+#             song = Song.objects.get(id=song_id)
+#         except Song.DoesNotExist:
+#             return Response({'message': 'Song not found'}, status=status.HTTP_404_NOT_FOUND)
+
+#         liked_song, created = LikedSong.objects.get_or_create(user=user, song=song)
+
+#         if not created:
+#             liked_song.delete()
+#             return Response({'message': 'Song unliked'}, status=status.HTTP_204_NO_CONTENT)
+#         else:
+#             return Response({'message': 'Song liked'}, status=status.HTTP_201_CREATED)
+
+
+# # # class SongRatingViewSet(viewsets.ModelViewSet):
+# # #     queryset = SongRating.objects.all()
+# # #     serializer_class = SongRatingSerializer
+    
+# # #     @action(detail=True, methods=['post'])
+# # #     def rate_song(self, request, pk=None):
+# # #         user = request.user  # Assuming you have authentication set up.
+# # #         song_rating = self.get_object()
+# # #         rating_value = request.data.get('rating')
+
+# # #         if song_rating.user == user:
+# # #             # Update the existing rating if it belongs to the authenticated user
+# # #             song_rating.rating = rating_value
+# # #             song_rating.save()
+# # #             message = "Rating updated successfully."
+# # #         else:
+# # #             # Create a new rating if it doesn't exist or belongs to a different user
+# # #             SongRating.objects.create(user=user, song=song_rating.song, rating=rating_value)
+# # #             message = "Rating created successfully."
+
+# # #         return Response({'message': message})
+
+
+# #   def perform_create(self, serializer):
+# #             # Get the song and user associated with the rating
+# #         song = serializer.validated_data['song']
+# #         user = serializer.validated_data['user']
+
+# #         # Check if the user already rated the song
+# #         existing_rating = SongRating.objects.filter(song=song, user=user).first()
+
+# #         if existing_rating:
+# #             # User already rated the song, so decrease the rating count
+# #             existing_rating.rating -= 1
+# #             existing_rating.save()
+# #             message = 'Song rating decreased'
+# #         else:
+# #             # User is rating the song for the first time, so increase the rating count
+# #             serializer.save()
+# #             message = 'Song rating increased'
+
+# #         # Send a signal to notify about the rating update
+# #         # song_rating_updated.send(sender=self.__class__, user=user)
+
+# #         return Response({'message': message}, status=status.HTTP_201_CREATED)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from django.db import models
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from .models import *
+from django.dispatch import Signal
+# from .signals import Song
+from django.contrib.auth.models import User
+# Define a signal to notify about song rating updates
+# song_rating_updated = Signal()
+
+
+# class Song(models.Model):
+#     print("")
+#     # Your Song model fields here...
+
+@receiver(post_save, sender=LikedSong)
+def song_like_added(sender, instance, **kwargs):
+    """
+    Signal handler for when a new like is added for a song.
+    Update the song's like count.
+    """
+    instance.song.like_count += 1
+    instance.song.save()
+
+@receiver(post_delete, sender=LikedSong)
+def song_like_removed(sender, instance, **kwargs):
+    """
+    Signal handler for when a like is removed from a song.
+    Update the song's like count.
+    """
+    instance.song.like_count -= 1
+    instance.song.save()
+
+
+# # Album save 
+# @receiver(post_save, sender=Album)
+# def update_album_views(sender, instance,  **kwargs):
+#     # user = kwargs['user']
+ 
+#     print("--------------user --",instance)
+    # SavedAlbum.objects.create(user=User, album=instance)
+    # if created:
+    #     # Only update views count if a new SavedAlbum is created
+    #     # instance.album.views += 1
+    #     instance.album += 1
+    #     instance.album.save()
+
+
+
+# # Define a signal to notify about song rating updates
+# song_rating_updated = Signal(providing_args=["song_rating_instance", "user"])
+
+
+# @receiver(song_rating_updated, sender=SongRating)
+# def update_song_rating(sender, **kwargs):
+#     user = kwargs['user']
+#     song_id = kwargs['instance'].song_id
+
+#     # Get all ratings for the song by different users
+#     ratings_for_song = SongRating.objects.filter(song_id=song_id)
+
+#     # Calculate the average rating for the song
+#     total_rating = sum(rating.rating for rating in ratings_for_song)
+#     num_ratings = ratings_for_song.count()
+
+#     if num_ratings > 0:
+#         average_rating = total_rating / num_ratings
+#     else:
+#         average_rating = 0  # No ratings, set to default
+
+#     # Update the song's overall rating
+#     song = Song.objects.get(id=song_id)
+#     song.overall_rating = average_rating
+#     song.save()
+    
+#     # Define a signal to notify about song rating updates
+
+
+
+1
+4
+1 2 2 1
+
+sample output 1 
+0
